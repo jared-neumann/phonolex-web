@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "phonolex-web"
+version = "0.1.0"
+description = "A web page implementing PhonoLex features."
+authors = ["Jared Neumann <antspiderbee@gmail.com>"]
+license = "GNU General Public License v3.0"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+streamlit = "^1.10.0"
+pandas = "^1.4.3"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
