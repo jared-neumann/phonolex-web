@@ -276,7 +276,6 @@ with st.expander('Word List Selection (Default: common lemmas)'):
 
 st.markdown('---')
 
-st.markdown("<h5 style='text-align: left; color: black;'>Word-Level Features</h1>", unsafe_allow_html=True)
 with st.expander('Word-Level Features (Default: allow everything except diphthongs)'):
     with st.form(key = 'word_features'):
 
