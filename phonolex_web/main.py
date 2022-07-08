@@ -1,7 +1,10 @@
 import pandas as pd
 import streamlit as st
+import numpy as np
 
-@st.cache
+if 'ptrn_phonemes' not in st.session_state:
+    st.session_state.ptrn_phonemes = []
+
 def load_data(source = 'common_lemmas'):
 
     sources = ['common_lemmas', 'common_words', 'all_words']
@@ -16,26 +19,151 @@ def load_data(source = 'common_lemmas'):
     elif source == 'all_words':
       return pd.read_pickle('data/all_words.pkl')
 
-@st.cache
-def word_level_filter(data, diphthongs = True, characters = (1, 20), phonemes = (1, 20), syllables = (1, 10)):
+def word_level_filter(df, diphthongs = False, characters = (1, 20), phonemes = (1, 20), syllables = (1, 10)):
 
-    filtered_data = data[
-        (data.contains_diphthong.astype(bool) == diphthongs)
-        & (data.character_length.astype(int) >= characters[0]) & (data.character_length.astype(int) <= characters[1])
-        & (data.phoneme_length.astype(int) >= phonemes[0]) & (data.phoneme_length.astype(int) <= phonemes[1])
-        & (data.syllables.astype(int) >= syllables[0]) & (data.syllables.astype(int) <= syllables[1])
-    ]
+    if diphthongs == True:
 
-    return filtered_data.drop(columns=['features'])
+        filtered_data = df[
+            (df.character_length.astype(int) >= characters[0]) & (df.character_length.astype(int) <= characters[1])
+            & (df.phoneme_length.astype(int) >= phonemes[0]) & (df.phoneme_length.astype(int) <= phonemes[1])
+            & (df.syllables.astype(int) >= syllables[0]) & (df.syllables.astype(int) <= syllables[1])
+        ]
+    
+    else:
 
+        filtered_data = df[
+            df.contains_diphthong.astype(bool) == False
+            & (df.character_length.astype(int) >= characters[0]) & (df.character_length.astype(int) <= characters[1])
+            & (df.phoneme_length.astype(int) >= phonemes[0]) & (df.phoneme_length.astype(int) <= phonemes[1])
+            & (df.syllables.astype(int) >= syllables[0]) & (df.syllables.astype(int) <= syllables[1])
+        ]
+
+    return filtered_data
+
+def compare_phonemes(word_phonemes, ptrn_phonemes):
+
+    match = True
+
+    if len(ptrn_phonemes) <= len(word_phonemes):
+            for i in range(0, len(ptrn_phonemes)):
+                
+                ptrn_phoneme = ptrn_phonemes[i]
+                word_phoneme = word_phonemes[i]
+
+                if len(ptrn_phoneme) == 0:
+                    continue
+
+                for feature in ptrn_phoneme:
+
+                    if ptrn_phoneme[feature] != None:
+                        
+                        if feature == 'TYPE':
+                            if ptrn_phoneme[feature] in word_phoneme[feature]:
+                                continue
+                            else:
+                                match = False
+                                break
+                    
+                        else:
+                            
+                            p = set(ptrn_phoneme[feature])
+                            w = set(word_phoneme[feature])
+
+                            if len(w.intersection(p)) > 0:
+                                continue
+                            else:
+                                match = False
+                                break
+
+                    else:
+                        continue
+    else:
+        match = False
+    
+    return match
+
+def begins_with_pattern(df, ptrn_phonemes):
+
+    valid_rows = []
+
+    for index, row in df.iterrows():
+        
+        word_phonemes = row['features']
+        
+        match = compare_phonemes(word_phonemes, ptrn_phonemes)
+
+        if match == True:
+            valid_rows.append(row)
+    
+    return pd.DataFrame(valid_rows)
+
+def ends_with_pattern(df, ptrn_phonemes):
+
+    valid_rows = []
+
+    for index, row in df.iterrows():
+
+        word_phonemes = row['features']
+
+        reverse_word = word_phonemes[::-1]
+        reverse_ptrn = ptrn_phonemes[::-1]
+
+        match = compare_phonemes(reverse_word, reverse_ptrn)
+
+        if match == True:
+            valid_rows.append(row)
+    
+    return pd.DataFrame(valid_rows)
+
+def exactly_matches_pattern(df, ptrn_phonemes):
+
+    valid_rows = []
+
+    for index, row, in df.iterrows():
+
+        word_phonemes = row['features']
+
+        match = True
+
+        if len(ptrn_phonemes) == len(word_phonemes):
+                for i in range(0, len(ptrn_phonemes)):
+                    ptrn_phoneme = ptrn_phonemes[i]
+                    word_phoneme = word_phonemes[i]
+                    if len(ptrn_phoneme) == 0:
+                        continue
+                    for feature in ptrn_phoneme:
+                        if ptrn_phoneme[feature] != None:   
+                            if feature == 'TYPE':
+                                if ptrn_phoneme[feature] in word_phoneme[feature]:
+                                    continue
+                                else:
+                                    match = False
+                                    break
+                            else:  
+                                p = set(ptrn_phoneme[feature])
+                                w = set(word_phoneme[feature])
+                                if len(w.intersection(p)) > 0:
+                                    continue
+                                else:
+                                    match = False
+                                    break
+                        else:
+                            continue
+        else:
+            match = False
+        
+        if match == True:
+            valid_rows.append(row)
+
+    return pd.DataFrame(valid_rows)   
+        
 st.markdown("<h1 style='text-align: center; color: black;'>PhonoLex</h1>", unsafe_allow_html=True)
 
 st.markdown('---')
 
 st.markdown("<h4 style='text-align: center; color: black;'>Choose a source to search:</h4>", unsafe_allow_html=True)
-data_option = st.selectbox('', ['common lemmas', 'common words', 'all words'])
 
-data = load_data('_'.join(data_option.split(' ')))
+data_option = st.selectbox('', ['common lemmas', 'common words', 'all words'])
 
 st.markdown('---')
 
@@ -60,8 +188,93 @@ mode_option = st.selectbox('', ['contains', 'begins with', 'ends with', 'exactly
 
 st.markdown('---')
 
+st.markdown("<h4 style='text-align: center; color: black;'>Define phonemes and add them to the phonetic pattern:</h4>", unsafe_allow_html=True)
+
+col_type, empty_0, empty_1 = st.columns(3)
+with col_type:
+        type = st.selectbox('TYPE', ['', 'consonant', 'vowel'])
+with st.form(key='ptrn_phoneme'):
+
+    voice = None
+    manner = None
+    place = None
+    shape = None
+    height = None
+    depth = None
+
+    if type == 'consonant':
+        col_voice, col_manner, col_place = st.columns(3)
+
+        with col_voice:
+            voice = st.selectbox('VOICE', ['', 'voiced', 'unvoiced'])
+        with col_manner:
+            manner = st.multiselect('MANNER', ['stop', 'affricate', 'fricative', 'liquid', 'glide', 'lateral', 'rhotic', 'nasal'])
+        with col_place:
+            place = st.multiselect('PLACE', ['bilabial', 'labiodental', 'dental', 'labiovelar', 'alveolar', 'postalveolar', 'alveopalatal', 'palatal', 'velar', 'glottal'])
+
+    if type == 'vowel':
+        col_shape, col_height, col_depth = st.columns(3)
+
+        with col_shape:
+            shape = st.selectbox('SHAPE', ['', 'rounded', 'unrounded'])
+        with col_height:
+            height = st.multiselect('HEIGHT', ['open', 'near-open', 'open-mid', 'mid', 'close-mid', 'near-close', 'close'])
+        with col_depth:
+            depth = st.multiselect('DEPTH', ['front', 'near-front', 'central', 'near-back', 'back'])
+
+    add_phoneme = st.form_submit_button(label='Add')
+
+if add_phoneme:
+    ptrn_phoneme = {
+        'TYPE': None,
+        'VOICE': None,
+        'MANNER': None,
+        'PLACE': None,
+        'SHAPE': None,
+        'HEIGHT': None,
+        'DEPTH': None
+    }
+    if type != None and type != '':
+        ptrn_phoneme['TYPE'] = type
+    if voice != None and voice != '':
+        ptrn_phoneme['VOICE'] = [voice]
+    if manner != None and len(manner) > 0 and manner != '':
+        ptrn_phoneme['MANNER'] = manner
+    if place != None and len(place) > 0 and place != '':
+        ptrn_phoneme['PLACE'] = place
+    if shape != None and shape != '':
+        ptrn_phoneme['SHAPE'] = [shape]
+    if height != None and len(height) > 0 and height != '':
+        ptrn_phoneme['HEIGHT'] = height
+    if depth != None and len(depth) > 0 and depth != '':
+        ptrn_phoneme['DEPTH'] = depth
+    st.session_state.ptrn_phonemes.append(ptrn_phoneme)
+
+if len(st.session_state.ptrn_phonemes) > 0:
+    ptrn = pd.DataFrame(st.session_state.ptrn_phonemes)
+    ptrn = ptrn.replace(r'^\s*$', np.nan, regex=True)
+    st.dataframe(ptrn)
+
 if st.button('Search'):
-    filtered_data_word_level = word_level_filter(data=data, diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
-    st.write(filtered_data_word_level)
+    data = load_data('_'.join(data_option.split(' ')))
+    filtered_data_word_level = word_level_filter(df=data, diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
+    if mode_option == 'begins with':
+        try:
+            matches = begins_with_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
+            st.dataframe(matches.drop(columns=['features']))
+        except:
+            st.text('No matches found.')
+    elif mode_option == 'ends with':
+        try:
+            matches = ends_with_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
+            st.dataframe(matches.drop(columns=['features']))
+        except:
+            st.text('No matches found.')
+    elif mode_option == 'exactly matches':
+        try:
+            matches = exactly_matches_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
+            st.dataframe(matches.drop(columns=['features']))
+        except:
+            st.text('No matches found.')
 else:
     pass
