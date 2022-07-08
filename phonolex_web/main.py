@@ -234,7 +234,7 @@ with st.sidebar:
         """
         Define phonemes using their features. First, select whether
         the phoneme you are defining is a consonant or vowel. The relevant
-        features will the appear. Add any number of these features. The app
+        features will then appear. Add any number of these features. The app
         will search for results containing all <i>types</i> of features
         defined, e.g., VOICE, MANNER, <b>and</b> PLACE, and containing any of the
         features defined within each, e.g., 'fricative' <b>or</b> 'affricate'.
