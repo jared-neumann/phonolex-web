@@ -1,3 +1,4 @@
+from re import S
 import pandas as pd
 import streamlit as st
 import numpy as np
@@ -29,23 +30,17 @@ def load_data(source = 'common_lemmas'):
     elif source == 'all_words':
       return pd.read_pickle('data/all_words.pkl')
 
-def word_level_filter(df, diphthongs = False, characters = (1, 20), phonemes = (1, 20), syllables = (1, 10)):
+def word_level_filter(df, diphthongs = False, characters = (1,20), phonemes = (1,20), syllables = (1,10)):
 
-    if diphthongs == True:
-
-        filtered_data = df[
+    filtered_data = df[
             (df.character_length.astype(int) >= characters[0]) & (df.character_length.astype(int) <= characters[1])
             & (df.phoneme_length.astype(int) >= phonemes[0]) & (df.phoneme_length.astype(int) <= phonemes[1])
             & (df.syllables.astype(int) >= syllables[0]) & (df.syllables.astype(int) <= syllables[1])
         ]
     
-    else:
-
-        filtered_data = df[
-            df.contains_diphthong.astype(bool) == False
-            & (df.character_length.astype(int) >= characters[0]) & (df.character_length.astype(int) <= characters[1])
-            & (df.phoneme_length.astype(int) >= phonemes[0]) & (df.phoneme_length.astype(int) <= phonemes[1])
-            & (df.syllables.astype(int) >= syllables[0]) & (df.syllables.astype(int) <= syllables[1])
+    if diphthongs == False:
+        filtered_data = filtered_data[
+            (filtered_data.contains_diphthong.astype(bool) == False)
         ]
 
     return filtered_data
@@ -278,11 +273,11 @@ st.markdown("<h1 style='text-align: left; color: black;'>PhonoLex</h1>", unsafe_
 
 with st.expander('Word List Selection (Default: common lemmas)'):
     data_option = st.selectbox('', ['common lemmas', 'common words', 'all words'])
-data = load_data('_'.join(data_option.split(' ')))
 
 st.markdown('---')
 
-with st.expander('Word-Level Features (Default: allow everything but diphthongs)'):
+st.markdown("<h5 style='text-align: left; color: black;'>Word-Level Features</h1>", unsafe_allow_html=True)
+with st.expander('Word-Level Features (Default: allow everything except diphthongs)'):
     with st.form(key = 'word_features'):
 
         col_diphthong, col_characters, empty1, col_phonemes, empty2, col_syllables = st.columns([1.35,1,0.33,1,0.33,1])
@@ -297,7 +292,8 @@ with st.expander('Word-Level Features (Default: allow everything but diphthongs)
         with col_syllables:
             syllables = st.slider("# of syllables:", min_value = 1, max_value = 10, value = (1, 10), step = 1)
 
-        submit_word_features = st.form_submit_button(label='Submit')
+        submit = st.form_submit_button(label='Submit')
+
 
 st.markdown('---')
 
@@ -375,8 +371,12 @@ if len(st.session_state.ptrn_phonemes) > 0:
 
     st.markdown('---')
 
-if st.button('Search'): 
-    filtered_data_word_level = word_level_filter(df=data.copy(), diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
+if st.button('Search'):
+
+    data = load_data('_'.join(data_option.split(' ')))
+
+    filtered_data_word_level = word_level_filter(data, diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
+
     if mode_option == 'begins with':
         try:
             matches = begins_with_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
