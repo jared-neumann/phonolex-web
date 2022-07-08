@@ -1,10 +1,20 @@
 import pandas as pd
 import streamlit as st
 import numpy as np
+from PIL import Image
+
+img = Image.open("images/phonolex-icon.png")
+
+st.set_page_config(
+    page_title="PhonoLex",
+    page_icon=img,
+    layout="wide"
+    )
 
 if 'ptrn_phonemes' not in st.session_state:
     st.session_state.ptrn_phonemes = []
 
+@st.cache
 def load_data(source = 'common_lemmas'):
 
     sources = ['common_lemmas', 'common_words', 'all_words']
@@ -155,74 +165,179 @@ def exactly_matches_pattern(df, ptrn_phonemes):
         if match == True:
             valid_rows.append(row)
 
-    return pd.DataFrame(valid_rows)   
+    return pd.DataFrame(valid_rows)
+
+def contains_pattern(df, ptrn_phonemes):
+    
+    valid_rows = []
+
+    for index, row, in df.iterrows():
+
+        word_phonemes = row['features']
+
+        match = False
+
+        while match == False and len(word_phonemes) >= len(ptrn_phonemes):
+
+            if compare_phonemes(word_phonemes, ptrn_phonemes) == False:
+                word_phonemes.pop(0)
+                continue
+            else:
+                valid_rows.append(row)
+                match = True
+    
+    return pd.DataFrame(valid_rows)
+
+with st.sidebar:
+    st.header('About')
+    st.markdown(
+        """
+        <b>PhonoLex</b> is an application that allows you to 
+        find words given a set of word-level features 
+        and phonetic patterns.
+        """,
+        unsafe_allow_html=True
+    )
+    
+    st.header('Word Lists')
+    st.markdown(
+        """
+        Given criteria are checked against a word list. 
+        There are three options: <i>common lemmas</i>, <i>common
+        words</i>, and <i>all words</i>.
+
+        <i>all words</i>: derived from the
+        <a href="http://www.speech.cs.cmu.edu/cgi-bin/cmudict">CMU Pronouncing Dictionary</a>.
+        Proper nouns and non-English words removed.
+
+        <i>common words</i>: derived from the top 5000 lemmas and word forms in the 
+        <a href="https://www.wordfrequency.info/samples.asp">COCA 2020 Word Frequency Data</a>.
+        Cross-referenced with the CMU Pronouncing Dictionary.
+
+        <i>common lemmas</i>: derived from the top 5000 lemmas in the 
+        COCA Word Frequency Data linked above.
+        Cross-referenced with the CMU Pronouncing Dictionary.
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.header('Word-Level Features')
+    st.markdown(
+        """
+        Optional set of four word-level features that are adjustable.
+        Limit the results by setting minimum and maximum numbers
+        of characters, phonemes, and syllables, and select whether
+        to allow diphthongs.
+
+        Submit the form before searching.
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.header('Phoneme-Level Features')
+    st.markdown(
+        """
+        Define phonemes using their features. First, select whether
+        the phoneme you are defining is a consonant or vowel. The relevant
+        features will the appear. Add any number of these features. The app
+        will search for results containing all <i>types</i> of features
+        defined, e.g., VOICE, MANNER, <b>and</b> PLACE, and containing any of the
+        features defined within each, e.g., 'fricative' <b>or</b> 'affricate'.
+
+        Empty features match anything.
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.header('Pattern Building')
+    st.markdown(
+        """
+        Build a pattern of phonemes defined above by adding them in the 
+        desired order. Currently, there is no way to re-order or delete
+        phonemes. To start over, you will have to refresh the page.
         
-st.markdown("<h1 style='text-align: center; color: black;'>PhonoLex</h1>", unsafe_allow_html=True)
+        Select the pattern-matching mode, which determines where in a word
+        the pattern should appear. Note: empty phonemes are allowed, and match anything.
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown('---')
+    st.markdown(
+        """
+        <p>Author: Jared Neumann</p>
+        <p>Github: <a href="https://github.com/jared-neumann">jared-neumann</a></p>  
+        <p>Version: 1.0.0</p>
+        <p>Copyright 2022</p>
+        """,
+        unsafe_allow_html=True
+        )
+
+        
+st.markdown("<h1 style='text-align: left; color: black;'>PhonoLex</h1>", unsafe_allow_html=True)
+
+with st.expander('Word List Selection (Default: common lemmas)'):
+    data_option = st.selectbox('', ['common lemmas', 'common words', 'all words'])
+data = load_data('_'.join(data_option.split(' ')))
 
 st.markdown('---')
 
-st.markdown("<h4 style='text-align: center; color: black;'>Choose a source to search:</h4>", unsafe_allow_html=True)
+with st.expander('Word-Level Features (Default: allow everything but diphthongs)'):
+    with st.form(key = 'word_features'):
 
-data_option = st.selectbox('', ['common lemmas', 'common words', 'all words'])
+        col_diphthong, col_characters, empty1, col_phonemes, empty2, col_syllables = st.columns([1.35,1,0.33,1,0.33,1])
+        with col_diphthong:
+            st.markdown('')
+            st.markdown('')
+            contains_diphthong = st.checkbox("allow diphthongs")
+        with col_characters:
+            character_length = st.slider("# of characters:", min_value = 1, max_value = 20, value = (1, 20), step = 1)
+        with col_phonemes:
+            phoneme_length = st.slider("# of phonemes:", min_value = 1, max_value = 20, value = (1, 20), step = 1)
+        with col_syllables:
+            syllables = st.slider("# of syllables:", min_value = 1, max_value = 10, value = (1, 10), step = 1)
 
-st.markdown('---')
-
-st.markdown("<h4 style='text-align: center; color: black;'>Define word-level features if desired:</h4>", unsafe_allow_html=True)
-
-col_diphthong, col_characters, empty1, col_phonemes, empty2, col_syllables = st.columns([2,1,0.33,1,0.33,1])
-with col_diphthong:
-    st.markdown('')
-    st.markdown('')
-    contains_diphthong = st.checkbox("allow diphthongs")
-with col_characters:
-    character_length = st.slider("# of characters:", min_value = 1, max_value = 20, value = (1, 20), step = 1)
-with col_phonemes:
-    phoneme_length = st.slider("# of phonemes:", min_value = 1, max_value = 20, value = (1, 20), step = 1)
-with col_syllables:
-    syllables = st.slider("# of syllables:", min_value = 1, max_value = 10, value = (1, 10), step = 1)
+        submit_word_features = st.form_submit_button(label='Submit')
 
 st.markdown('---')
 
-st.markdown("<h4 style='text-align: center; color: black;'>Choose a pattern-matching mode:</h4>", unsafe_allow_html=True)
-mode_option = st.selectbox('', ['contains', 'begins with', 'ends with', 'exactly matches'])
-
-st.markdown('---')
-
-st.markdown("<h4 style='text-align: center; color: black;'>Define phonemes and add them to the phonetic pattern:</h4>", unsafe_allow_html=True)
-
-col_type, empty_0, empty_1 = st.columns(3)
-with col_type:
+with st.expander('Phoneme Features and Pattern-Building (Default: none)'):
+    col_mode, empty_0, empty_1 = st.columns(3)
+    with col_mode:
+        mode_option = st.selectbox('PATTER-MATCHING MODE', ['begins with', 'ends with', 'contains', 'exactly matches'])
+    col_type, empty_2, empty_3 = st.columns(3)
+    with col_type:
         type = st.selectbox('TYPE', ['', 'consonant', 'vowel'])
-with st.form(key='ptrn_phoneme'):
+    with st.form(key='ptrn_phoneme'):
 
-    voice = None
-    manner = None
-    place = None
-    shape = None
-    height = None
-    depth = None
+        voice = None
+        manner = None
+        place = None
+        shape = None
+        height = None
+        depth = None
 
-    if type == 'consonant':
-        col_voice, col_manner, col_place = st.columns(3)
+        if type == 'consonant':
+            col_voice, col_manner, col_place = st.columns(3)
+            
+            with col_voice:
+                voice = st.selectbox('VOICE', ['', 'voiced', 'unvoiced'])
+            with col_manner:
+                manner = st.multiselect('MANNER', ['stop', 'affricate', 'fricative', 'liquid', 'glide', 'lateral', 'rhotic', 'nasal'])
+            with col_place:
+                place = st.multiselect('PLACE', ['bilabial', 'labiodental', 'dental', 'labiovelar', 'alveolar', 'postalveolar', 'alveopalatal', 'palatal', 'velar', 'glottal'])
 
-        with col_voice:
-            voice = st.selectbox('VOICE', ['', 'voiced', 'unvoiced'])
-        with col_manner:
-            manner = st.multiselect('MANNER', ['stop', 'affricate', 'fricative', 'liquid', 'glide', 'lateral', 'rhotic', 'nasal'])
-        with col_place:
-            place = st.multiselect('PLACE', ['bilabial', 'labiodental', 'dental', 'labiovelar', 'alveolar', 'postalveolar', 'alveopalatal', 'palatal', 'velar', 'glottal'])
+        if type == 'vowel':
+            col_shape, col_height, col_depth = st.columns(3)
 
-    if type == 'vowel':
-        col_shape, col_height, col_depth = st.columns(3)
+            with col_shape:
+                shape = st.selectbox('SHAPE', ['', 'rounded', 'unrounded'])
+            with col_height:
+                height = st.multiselect('HEIGHT', ['open', 'near-open', 'open-mid', 'mid', 'close-mid', 'near-close', 'close'])
+            with col_depth:
+                   depth = st.multiselect('DEPTH', ['front', 'near-front', 'central', 'near-back', 'back'])
 
-        with col_shape:
-            shape = st.selectbox('SHAPE', ['', 'rounded', 'unrounded'])
-        with col_height:
-            height = st.multiselect('HEIGHT', ['open', 'near-open', 'open-mid', 'mid', 'close-mid', 'near-close', 'close'])
-        with col_depth:
-            depth = st.multiselect('DEPTH', ['front', 'near-front', 'central', 'near-back', 'back'])
-
-    add_phoneme = st.form_submit_button(label='Add')
+        add_phoneme = st.form_submit_button(label='Add')
 
 if add_phoneme:
     ptrn_phoneme = {
@@ -251,13 +366,17 @@ if add_phoneme:
     st.session_state.ptrn_phonemes.append(ptrn_phoneme)
 
 if len(st.session_state.ptrn_phonemes) > 0:
+    st.markdown('---')
+    st.markdown("<h5 style='text-align: left; color: black;'>Pattern</h5>", unsafe_allow_html=True)
+
     ptrn = pd.DataFrame(st.session_state.ptrn_phonemes)
     ptrn = ptrn.replace(r'^\s*$', np.nan, regex=True)
     st.dataframe(ptrn)
 
-if st.button('Search'):
-    data = load_data('_'.join(data_option.split(' ')))
-    filtered_data_word_level = word_level_filter(df=data, diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
+    st.markdown('---')
+
+if st.button('Search'): 
+    filtered_data_word_level = word_level_filter(df=data.copy(), diphthongs=contains_diphthong, characters=character_length, phonemes=phoneme_length, syllables=syllables)
     if mode_option == 'begins with':
         try:
             matches = begins_with_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
@@ -273,6 +392,12 @@ if st.button('Search'):
     elif mode_option == 'exactly matches':
         try:
             matches = exactly_matches_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
+            st.dataframe(matches.drop(columns=['features']))
+        except:
+            st.text('No matches found.')
+    elif mode_option == 'contains':
+        try:
+            matches = contains_pattern(filtered_data_word_level, st.session_state.ptrn_phonemes)
             st.dataframe(matches.drop(columns=['features']))
         except:
             st.text('No matches found.')
