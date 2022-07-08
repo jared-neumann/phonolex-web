@@ -299,7 +299,7 @@ st.markdown('---')
 with st.expander('Phoneme Features and Pattern-Building (Default: none)'):
     col_mode, empty_0, empty_1 = st.columns(3)
     with col_mode:
-        mode_option = st.selectbox('PATTER-MATCHING MODE', ['begins with', 'ends with', 'contains', 'exactly matches'])
+        mode_option = st.selectbox('PATTERN-MATCHING MODE', ['begins with', 'ends with', 'contains', 'exactly matches'])
     col_type, empty_2, empty_3 = st.columns(3)
     with col_type:
         type = st.selectbox('TYPE', ['', 'consonant', 'vowel'])
